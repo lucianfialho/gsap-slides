@@ -48,7 +48,7 @@ try {
 
 // ---- State ------------------------------------------------------------------
 
-let slides = parseSlides(markdown);
+let slides = await parseSlides(markdown);
 let currentSlide = 0;
 let timerStart = Date.now();
 let timerInterval: ReturnType<typeof setInterval>;
@@ -142,7 +142,7 @@ function updatePresenter() {
   // Update notes
   const notesContent = document.querySelector("#presenter-notes .notes-content");
   if (notesContent) {
-    const notes = slides[currentSlide]?.notes;
+    const fm = slides[currentSlide]?.frontmatter; const notes = fm?.notes as string | undefined;
     notesContent.textContent = notes ?? "(no notes)";
   }
 }
@@ -170,9 +170,9 @@ document.addEventListener("keydown", (e) => {
 // ---- HMR (hot reload) -------------------------------------------------------
 
 if (import.meta.hot) {
-  import.meta.hot.on("slides:update", (data: { markdown: string }) => {
+  import.meta.hot.on("slides:update", async (data: { markdown: string }) => {
     // Re-parse slides from the new markdown
-    slides = parseSlides(data.markdown);
+    slides = await parseSlides(data.markdown);
 
     // Clamp currentSlide to valid range
     if (currentSlide >= slides.length) currentSlide = slides.length - 1;
