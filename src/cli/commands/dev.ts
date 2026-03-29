@@ -67,6 +67,7 @@ export async function startDevServer(
     root: viewerRoot,
     server: {
       port: options.port,
+      host: true,
     },
     // Inject virtual modules that provide parsed slides and config to the browser
     plugins: [
