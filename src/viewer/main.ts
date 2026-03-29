@@ -128,6 +128,96 @@ function animateGeosOnNav(slideIndex: number) {
 }
 
 // ========================================================
+// SVG Circuit Drawing — paths draw progressively per slide
+// ========================================================
+let circuitPaths: SVGPathElement[] = [];
+let circuitSegmentLengths: number[] = [];
+let circuitRevealedSegments = 0;
+
+function initCircuit() {
+  const paths = document.querySelectorAll<SVGPathElement>(".gs-circuit-path");
+  circuitPaths = Array.from(paths);
+
+  // Set all paths to hidden (stroke-dashoffset = length)
+  circuitPaths.forEach((path) => {
+    const length = path.getTotalLength();
+    circuitSegmentLengths.push(length);
+    gsap.set(path, {
+      strokeDasharray: length,
+      strokeDashoffset: length,
+    });
+  });
+
+  // Set all nodes hidden
+  gsap.set(".gs-circuit-node", { opacity: 0, scale: 0 });
+  gsap.set(".gs-circuit-pulse", { opacity: 0, scale: 1 });
+}
+
+function revealCircuitToSlide(slideIndex: number) {
+  const total = slides.length;
+  // How many segments to reveal based on progress (0 to circuitPaths.length)
+  const progress = total > 1 ? slideIndex / (total - 1) : 0;
+  const targetSegments = Math.ceil(progress * circuitPaths.length);
+
+  // Reveal new segments
+  for (let i = circuitRevealedSegments; i < targetSegments; i++) {
+    if (!circuitPaths[i]) continue;
+    gsap.to(circuitPaths[i], {
+      strokeDashoffset: 0,
+      duration: 1.2,
+      ease: "power2.inOut",
+      delay: (i - circuitRevealedSegments) * 0.15,
+    });
+  }
+
+  // Hide segments if going backwards
+  for (let i = circuitPaths.length - 1; i >= targetSegments; i--) {
+    if (!circuitPaths[i]) continue;
+    gsap.to(circuitPaths[i], {
+      strokeDashoffset: circuitSegmentLengths[i],
+      duration: 0.8,
+      ease: "power2.inOut",
+    });
+  }
+
+  circuitRevealedSegments = targetSegments;
+
+  // Reveal/hide circuit nodes based on progress
+  const nodes = document.querySelectorAll<SVGCircleElement>(".gs-circuit-node");
+  const nodesToShow = Math.ceil(progress * nodes.length);
+  nodes.forEach((node, i) => {
+    if (i < nodesToShow) {
+      gsap.to(node, {
+        opacity: 0.8,
+        scale: 1,
+        duration: 0.5,
+        delay: i * 0.05,
+        ease: "back.out(2)",
+      });
+    } else {
+      gsap.to(node, { opacity: 0, scale: 0, duration: 0.3, ease: "power2.in" });
+    }
+  });
+
+  // Pulse rings at key nodes on specific slides
+  const pulses = document.querySelectorAll<SVGCircleElement>(".gs-circuit-pulse");
+  pulses.forEach((pulse, i) => {
+    if (i < nodesToShow && slideIndex > 0) {
+      gsap.fromTo(pulse,
+        { opacity: 0.6, scale: 1 },
+        {
+          opacity: 0,
+          scale: 4,
+          duration: 1.5,
+          ease: "power2.out",
+          delay: 0.3 + i * 0.2,
+        }
+      );
+    }
+  });
+}
+
+// ========================================================
 // Navigation Spine — vertical SVG dots + progress line
 // ========================================================
 let spineDots: SVGCircleElement[] = [];
@@ -339,6 +429,7 @@ function goTo(index: number) {
   updateSpine(index);
   updateSlideNumber(index);
   animateGeosOnNav(index);
+  revealCircuitToSlide(index);
 }
 
 document.addEventListener("keydown", (e) => {
@@ -392,6 +483,7 @@ updateTimer();
 // Kick off ambient animations
 initOrbs();
 initGeometries();
+initCircuit();
 
 if (config.presenter) {
   setupPresenterMode();
