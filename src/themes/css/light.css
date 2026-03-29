@@ -1,0 +1,21 @@
+/**
+ * Light theme for gsap-slides.
+ * Light background with dark text.
+ */
+
+:root[data-theme="light"],
+.theme-light {
+  --gs-bg: #ffffff;
+  --gs-bg-secondary: #f8f9fa;
+  --gs-text: #1a1a2e;
+  --gs-text-secondary: #4a5568;
+  --gs-accent: #3b82f6;
+  --gs-accent-hover: #2563eb;
+  --gs-code-bg: #f1f5f9;
+  --gs-code-text: #1e293b;
+  --gs-code-keyword: #7c3aed;
+  --gs-code-string: #059669;
+  --gs-code-comment: #9ca3af;
+  --gs-border: #e2e8f0;
+  --gs-heading: #0f172a;
+}

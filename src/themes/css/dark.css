@@ -1,0 +1,21 @@
+/**
+ * Dark theme for gsap-slides (default).
+ * Dark background with light text and blue accent.
+ */
+
+:root[data-theme="dark"],
+.theme-dark {
+  --gs-bg: #1a1a2e;
+  --gs-bg-secondary: #16213e;
+  --gs-text: #eaeaea;
+  --gs-text-secondary: #a0a0b0;
+  --gs-accent: #3b82f6;
+  --gs-accent-hover: #2563eb;
+  --gs-code-bg: #0f0f23;
+  --gs-code-text: #e2e8f0;
+  --gs-code-keyword: #c084fc;
+  --gs-code-string: #86efac;
+  --gs-code-comment: #6b7280;
+  --gs-border: #2d2d44;
+  --gs-heading: #f8fafc;
+}
