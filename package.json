@@ -1,0 +1,30 @@
+{
+  "name": "gsap-slides",
+  "version": "0.1.0",
+  "description": "GSAP-powered slide deck framework using Markdown",
+  "main": "dist/index.js",
+  "bin": {
+    "gsap-slides": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r src/cli/templates dist/cli/templates",
+    "dev": "tsc --watch",
+    "start": "node dist/cli/index.js"
+  },
+  "keywords": [
+    "gsap",
+    "slides",
+    "presentation",
+    "markdown",
+    "cli"
+  ],
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}
