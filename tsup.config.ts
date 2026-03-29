@@ -11,4 +11,6 @@ export default defineConfig({
   banner: {
     js: "#!/usr/bin/env node",
   },
+  // These are resolved at runtime via dynamic import or Vite's own bundling
+  external: ["vite", "vite-plugin-singlefile", "playwright", "fsevents"],
 });
