@@ -355,3 +355,48 @@ export async function loadLanguage(lang: string): Promise<boolean> {
   const highlighter = await getHighlighter();
   return ensureLanguage(highlighter, lang);
 }
+
+/**
+ * Extract simple key: value frontmatter from the beginning of a raw
+ * Markdown slide block (without --- delimiters). Lightweight utility
+ * for quick extraction without the full async pipeline.
+ */
+export function extractFrontmatter(raw: string): {
+  content: string;
+  frontmatter?: Record<string, string>;
+} {
+  const lines = raw.split("\n");
+  const fm: Record<string, string> = {};
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  while (i < lines.length) {
+    const match = lines[i].match(/^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:\s*(.+)$/);
+    if (match) {
+      fm[match[1]] = match[2].trim();
+      i++;
+    } else {
+      break;
+    }
+  }
+  if (Object.keys(fm).length === 0) {
+    return { content: raw };
+  }
+  const remaining = lines.slice(i).join("\n");
+  return { content: remaining, frontmatter: fm };
+}
+
+/**
+ * Extract presenter notes from a slide's raw Markdown content.
+ * Notes are wrapped in HTML comment blocks.
+ */
+export function extractNotes(raw: string): {
+  content: string;
+  notes?: string;
+} {
+  const notesRegex = /<!--\s*notes\s*\n([\s\S]*?)-->/;
+  const match = raw.match(notesRegex);
+  if (!match) return { content: raw };
+  const notes = match[1].trim();
+  const content = raw.replace(notesRegex, "").trim();
+  return { content, notes };
+}
