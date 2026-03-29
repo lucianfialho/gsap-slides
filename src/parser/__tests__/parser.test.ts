@@ -1,0 +1,186 @@
+import { describe, it, expect } from "vitest";
+import { parseSlides } from "../index.js";
+
+describe("parseSlides", () => {
+  it("parses a single slide with no frontmatter", async () => {
+    const md = "# Hello World\n\nSome content here.";
+    const slides = await parseSlides(md);
+
+    expect(slides).toHaveLength(1);
+    expect(slides[0].id).toBe(0);
+    expect(slides[0].content).toContain("<h1>");
+    expect(slides[0].content).toContain("Hello World");
+    expect(slides[0].frontmatter).toEqual({});
+  });
+
+  it("parses multiple slides separated by ---", async () => {
+    const md = `# Slide One
+
+Content one
+
+---
+
+# Slide Two
+
+Content two
+
+---
+
+# Slide Three
+
+Content three`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides).toHaveLength(3);
+    expect(slides[0].id).toBe(0);
+    expect(slides[1].id).toBe(1);
+    expect(slides[2].id).toBe(2);
+    expect(slides[0].content).toContain("Slide One");
+    expect(slides[1].content).toContain("Slide Two");
+    expect(slides[2].content).toContain("Slide Three");
+  });
+
+  it("extracts frontmatter from slides", async () => {
+    const md = `---
+transition: fade
+duration: 0.5
+animation: slideLeft
+---
+# First Slide
+
+Content
+
+---
+
+---
+background: "#ff0000"
+enter:
+  x: -100
+  opacity: 0
+---
+# Second Slide
+
+More content`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides).toHaveLength(2);
+    expect(slides[0].frontmatter.transition).toBe("fade");
+    expect(slides[0].frontmatter.duration).toBe(0.5);
+    expect(slides[0].frontmatter.animation).toBe("slideLeft");
+
+    expect(slides[1].frontmatter.background).toBe("#ff0000");
+    expect(slides[1].frontmatter.enter).toEqual({ x: -100, opacity: 0 });
+  });
+
+  it("converts markdown to HTML", async () => {
+    const md = `# Heading
+
+A paragraph with **bold** and *italic* text.
+
+- Item one
+- Item two`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides[0].content).toContain("<h1>");
+    expect(slides[0].content).toContain("<strong>bold</strong>");
+    expect(slides[0].content).toContain("<em>italic</em>");
+    expect(slides[0].content).toContain("<ul>");
+    expect(slides[0].content).toContain("<li>");
+  });
+
+  it("handles code blocks with syntax highlighting", async () => {
+    const md = `# Code Example
+
+\`\`\`javascript
+const x = 42;
+console.log(x);
+\`\`\``;
+
+    const slides = await parseSlides(md);
+
+    // Shiki wraps code in <pre> with class="shiki"
+    expect(slides[0].content).toContain("shiki");
+    expect(slides[0].content).toContain("42");
+  });
+
+  it("handles images", async () => {
+    const md = `# Images
+
+![Alt text](https://example.com/image.png)`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides[0].content).toContain("<img");
+    expect(slides[0].content).toContain('src="https://example.com/image.png"');
+    expect(slides[0].content).toContain('alt="Alt text"');
+  });
+
+  it("extracts slide elements", async () => {
+    const md = `# Title
+
+A paragraph.
+
+- List item`;
+
+    const slides = await parseSlides(md);
+    const elements = slides[0].elements;
+
+    expect(elements.length).toBeGreaterThanOrEqual(2);
+
+    const h1 = elements.find((e) => e.tag === "h1");
+    expect(h1).toBeDefined();
+    expect(h1!.content).toContain("Title");
+
+    const p = elements.find((e) => e.tag === "p");
+    expect(p).toBeDefined();
+    expect(p!.content).toContain("A paragraph.");
+  });
+
+  it("handles unknown code block languages gracefully", async () => {
+    const md = `\`\`\`unknownlang
+some code
+\`\`\``;
+
+    const slides = await parseSlides(md);
+
+    // Should not throw, falls back to plain text
+    expect(slides[0].content).toContain("some code");
+  });
+
+  it("handles empty input", async () => {
+    const slides = await parseSlides("");
+    expect(slides).toHaveLength(0);
+  });
+
+  it("preserves custom frontmatter keys", async () => {
+    const md = `---
+transition: fade
+customKey: customValue
+nested:
+  a: 1
+  b: 2
+---
+# Slide`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides[0].frontmatter.customKey).toBe("customValue");
+    expect(slides[0].frontmatter.nested).toEqual({ a: 1, b: 2 });
+  });
+
+  it("handles video and audio elements in HTML", async () => {
+    const md = `# Media
+
+<video src="video.mp4" controls></video>
+
+<audio src="audio.mp3" controls></audio>`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides[0].content).toContain("video.mp4");
+    expect(slides[0].content).toContain("audio.mp3");
+  });
+});
