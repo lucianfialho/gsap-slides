@@ -6,38 +6,29 @@
  * counter, progress bar, timer, and optional presenter mode.
  */
 
-import { parseSlides, type Slide } from "../parser/index.js";
 import { renderSlides } from "../renderer/index.js";
 
+interface Slide {
+  id: number;
+  content: string;
+  frontmatter: Record<string, any>;
+  elements: any[];
+}
+
 // These virtual modules are provided by the Vite plugin in dev.ts.
-// When running via plain `vite dev` (no CLI), they fall back to defaults.
-let markdown: string;
+// Slides arrive pre-parsed from the server (no gray-matter/shiki in browser).
+let slides: Slide[];
 let config: { presenter: boolean };
 
 try {
-  markdown = (await import("virtual:slides-markdown")).default;
+  slides = (await import("virtual:slides-data")).default;
 } catch {
-  markdown = `
-# Welcome to gsap-slides
-
-Create beautiful presentations with Markdown and GSAP
-
----
-
-## Features
-
-- Write slides in Markdown
-- GSAP-powered animations
-- Vite dev server with HMR
-
----
-
-## Get Started
-
-\`\`\`bash
-npx gsap-slides dev slides.md
-\`\`\`
-`;
+  // Fallback for plain `vite dev` without the CLI
+  slides = [
+    { id: 0, content: "<h1>Welcome to gsap-slides</h1><p>Create beautiful presentations with Markdown and GSAP</p>", frontmatter: {}, elements: [] },
+    { id: 1, content: "<h2>Features</h2><ul><li>Write slides in Markdown</li><li>GSAP-powered animations</li><li>Vite dev server with HMR</li></ul>", frontmatter: {}, elements: [] },
+    { id: 2, content: "<h2>Get Started</h2><pre><code>npx gsap-slides dev slides.md</code></pre>", frontmatter: {}, elements: [] },
+  ];
 }
 
 try {
@@ -47,8 +38,6 @@ try {
 }
 
 // ---- State ------------------------------------------------------------------
-
-let slides = await parseSlides(markdown);
 let currentSlide = 0;
 let timerStart = Date.now();
 let timerInterval: ReturnType<typeof setInterval>;
@@ -170,9 +159,9 @@ document.addEventListener("keydown", (e) => {
 // ---- HMR (hot reload) -------------------------------------------------------
 
 if (import.meta.hot) {
-  import.meta.hot.on("slides:update", async (data: { markdown: string }) => {
-    // Re-parse slides from the new markdown
-    slides = await parseSlides(data.markdown);
+  import.meta.hot.on("slides:update", async (data: { slides: Slide[] }) => {
+    // Receive pre-parsed slides from the server
+    slides = data.slides;
 
     // Clamp currentSlide to valid range
     if (currentSlide >= slides.length) currentSlide = slides.length - 1;

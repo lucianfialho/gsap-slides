@@ -10,6 +10,7 @@ import { createServer, type ViteDevServer } from "vite";
 import { resolve, dirname } from "path";
 import { readFileSync, existsSync, watchFile, unwatchFile } from "fs";
 import { fileURLToPath } from "url";
+import { parseSlides } from "../../parser/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -58,24 +59,30 @@ export async function startDevServer(
     process.exit(1);
   }
 
-  // Read initial markdown content
+  // Read and parse initial markdown content
   let markdown = readMarkdownFile(mdPath);
+  let parsedSlides = await parseSlides(markdown);
 
   const server = await createServer({
     root: viewerRoot,
     server: {
       port: options.port,
     },
-    // Inject a virtual module that provides the markdown content and mode
+    // Inject virtual modules that provide parsed slides and config to the browser
     plugins: [
       {
         name: "gsap-slides-markdown",
         resolveId(id) {
-          if (id === "virtual:slides-markdown") return "\0virtual:slides-markdown";
+          if (id === "virtual:slides-data") return "\0virtual:slides-data";
           if (id === "virtual:slides-config") return "\0virtual:slides-config";
+          // Keep old virtual module name for backwards compat
+          if (id === "virtual:slides-markdown") return "\0virtual:slides-markdown";
           return null;
         },
         load(id) {
+          if (id === "\0virtual:slides-data") {
+            return `export default ${JSON.stringify(parsedSlides)};`;
+          }
           if (id === "\0virtual:slides-markdown") {
             return `export default ${JSON.stringify(markdown)};`;
           }
@@ -86,17 +93,18 @@ export async function startDevServer(
         },
         configureServer(server) {
           // Watch the markdown file and send HMR updates
-          const sendUpdate = () => {
+          const sendUpdate = async () => {
             markdown = readMarkdownFile(mdPath);
-            // Invalidate virtual module and trigger full reload via custom event
-            const mod = server.moduleGraph.getModuleById("\0virtual:slides-markdown");
-            if (mod) {
-              server.moduleGraph.invalidateModule(mod);
+            parsedSlides = await parseSlides(markdown);
+            // Invalidate virtual modules
+            for (const modId of ["\0virtual:slides-data", "\0virtual:slides-markdown"]) {
+              const mod = server.moduleGraph.getModuleById(modId);
+              if (mod) server.moduleGraph.invalidateModule(mod);
             }
             server.ws.send({
               type: "custom",
               event: "slides:update",
-              data: { markdown },
+              data: { slides: parsedSlides },
             });
           };
 

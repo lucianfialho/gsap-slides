@@ -249,13 +249,50 @@ function splitSlides(markdown: string): string[] {
 
 /**
  * Parse a single slide block (frontmatter + markdown body) into a Slide object.
+ *
+ * Blocks from splitSlides may arrive in two forms:
+ * 1. With `---` delimiters (gray-matter handles natively):
+ *    `---\ntransition: fade\n---\n# Title`
+ * 2. Without opening `---` (key: value lines at top):
+ *    `transition: fade\nduration: 0.8\n---\n# Title`
+ *    or just `transition: fade\n# Title`
+ *
+ * We normalise form 2 by wrapping with `---` so gray-matter can parse it.
  */
 async function parseSlideBlock(
   block: string,
   id: number,
   marked: Marked,
 ): Promise<Slide> {
-  const { data, content } = matter(block);
+  let toParse = block;
+
+  // If the block doesn't start with `---` but has key:value lines at the top
+  // followed by `---` or content, wrap them for gray-matter.
+  const trimmed = block.trim();
+  if (!trimmed.startsWith("---")) {
+    const lines = trimmed.split("\n");
+    let fmEnd = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line === "---") {
+        // Explicit frontmatter close without opening ---
+        fmEnd = i;
+        break;
+      }
+      if (/^[a-zA-Z_][\w-]*\s*:/.test(line)) {
+        fmEnd = i + 1;
+      } else {
+        break;
+      }
+    }
+    if (fmEnd > 0) {
+      const fmLines = lines.slice(0, fmEnd).filter(l => l.trim() !== "---");
+      const rest = lines.slice(lines[fmEnd]?.trim() === "---" ? fmEnd + 1 : fmEnd);
+      toParse = `---\n${fmLines.join("\n")}\n---\n${rest.join("\n")}`;
+    }
+  }
+
+  const { data, content } = matter(toParse);
   const frontmatter: SlideFrontmatter = data;
 
   const html = await marked.parse(content);

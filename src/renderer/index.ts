@@ -83,8 +83,25 @@ export function renderSlides(
     el.style.position = "absolute";
     el.style.inset = "0";
     el.style.display = "flex";
+    el.style.flexDirection = "column";
     el.style.alignItems = "center";
     el.style.justifyContent = "center";
+    el.style.padding = "60px 80px";
+
+    // Apply per-slide background from frontmatter
+    const fm = slide.frontmatter;
+    if (fm?.background) {
+      const bg = String(fm.background);
+      if (bg.includes("gradient") || bg.includes("url(")) {
+        el.style.backgroundImage = bg;
+      } else {
+        el.style.backgroundColor = bg;
+      }
+    }
+    if (fm?.color) {
+      el.style.color = String(fm.color);
+    }
+
     if (i !== 0) {
       gsap.set(el, { autoAlpha: 0 });
     }
