@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { startDevServer } from "./commands/dev.js";
 
 const program = new Command();
 
@@ -11,9 +12,13 @@ program
   .command("dev")
   .description("Start the development server for your slide deck")
   .argument("[file]", "Path to the Markdown slides file", "slides.md")
-  .action((file: string) => {
-    console.log(`Starting dev server for: ${file}`);
-    // TODO: launch Vite dev server with the slide deck
+  .option("-p, --port <number>", "Dev server port", "3000")
+  .option("--presenter", "Open in presenter mode with notes and next-slide preview", false)
+  .action(async (file: string, options: { port: string; presenter: boolean }) => {
+    await startDevServer(file, {
+      port: parseInt(options.port, 10),
+      presenter: options.presenter,
+    });
   });
 
 program
