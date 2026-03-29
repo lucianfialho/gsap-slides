@@ -1,0 +1,21 @@
+/**
+ * Hacker theme for gsap-slides.
+ * Terminal green on black, matrix-inspired.
+ */
+
+:root[data-theme="hacker"],
+.theme-hacker {
+  --gs-bg: #0a0a0a;
+  --gs-bg-secondary: #111111;
+  --gs-text: #00ff41;
+  --gs-text-secondary: #00cc33;
+  --gs-accent: #00ff41;
+  --gs-accent-hover: #33ff66;
+  --gs-code-bg: #050505;
+  --gs-code-text: #00ff41;
+  --gs-code-keyword: #00ffcc;
+  --gs-code-string: #ffff00;
+  --gs-code-comment: #006622;
+  --gs-border: #003300;
+  --gs-heading: #00ff41;
+}

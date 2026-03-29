@@ -1,0 +1,21 @@
+/**
+ * Minimal theme for gsap-slides.
+ * Black and white, no accent color.
+ */
+
+:root[data-theme="minimal"],
+.theme-minimal {
+  --gs-bg: #ffffff;
+  --gs-bg-secondary: #fafafa;
+  --gs-text: #000000;
+  --gs-text-secondary: #555555;
+  --gs-accent: #000000;
+  --gs-accent-hover: #333333;
+  --gs-code-bg: #f5f5f5;
+  --gs-code-text: #000000;
+  --gs-code-keyword: #000000;
+  --gs-code-string: #333333;
+  --gs-code-comment: #888888;
+  --gs-border: #e0e0e0;
+  --gs-heading: #000000;
+}
