@@ -3,3 +3,4 @@ dist/
 *.tsbuildinfo
 .vite/
 .claude/worktrees/
+src/parser/parser.test.ts
