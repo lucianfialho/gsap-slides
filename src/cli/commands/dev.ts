@@ -11,6 +11,8 @@ import { resolve, dirname } from "path";
 import { readFileSync, existsSync, watchFile, unwatchFile } from "fs";
 import { fileURLToPath } from "url";
 import { parseSlides } from "../../parser/index.js";
+import { createAvatar } from "@dicebear/core";
+import { shapes } from "@dicebear/collection";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,6 +48,32 @@ function resolveProjectRoot(): string {
   return process.cwd();
 }
 
+/**
+ * Extract heading text from slide HTML content to use as DiceBear seed.
+ */
+function extractHeadingText(html: string): string {
+  const match = html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  if (!match) return "slide";
+  // Strip any inner HTML tags
+  return match[1].replace(/<[^>]*>/g, "").trim() || "slide";
+}
+
+/**
+ * Generate DiceBear SVG illustrations for each slide and attach as `illustration`.
+ */
+function addIllustrations(
+  slides: Array<{ content: string; frontmatter: Record<string, any>; [key: string]: any }>,
+): void {
+  for (const slide of slides) {
+    const seed = extractHeadingText(slide.content);
+    const avatar = createAvatar(shapes, {
+      seed,
+      size: 300,
+    });
+    slide.illustration = avatar.toString();
+  }
+}
+
 export async function startDevServer(
   file: string,
   options: DevOptions,
@@ -62,6 +90,7 @@ export async function startDevServer(
   // Read and parse initial markdown content
   let markdown = readMarkdownFile(mdPath);
   let parsedSlides = await parseSlides(markdown);
+  addIllustrations(parsedSlides);
 
   const server = await createServer({
     root: viewerRoot,
@@ -97,6 +126,7 @@ export async function startDevServer(
           const sendUpdate = async () => {
             markdown = readMarkdownFile(mdPath);
             parsedSlides = await parseSlides(markdown);
+            addIllustrations(parsedSlides);
             // Invalidate virtual modules
             for (const modId of ["\0virtual:slides-data", "\0virtual:slides-markdown"]) {
               const mod = server.moduleGraph.getModuleById(modId);

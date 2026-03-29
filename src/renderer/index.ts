@@ -102,6 +102,23 @@ export function renderSlides(
       el.style.color = String(fm.color);
     }
 
+    // Inject DiceBear illustration as decorative background if no custom background
+    if ((slide as any).illustration && !fm?.background) {
+      const illustrationWrapper = document.createElement("div");
+      illustrationWrapper.className = "gsap-slide-illustration";
+      illustrationWrapper.innerHTML = (slide as any).illustration;
+      illustrationWrapper.style.position = "absolute";
+      illustrationWrapper.style.bottom = "20px";
+      illustrationWrapper.style.right = "20px";
+      illustrationWrapper.style.width = "300px";
+      illustrationWrapper.style.height = "300px";
+      illustrationWrapper.style.opacity = "0.3";
+      illustrationWrapper.style.pointerEvents = "none";
+      illustrationWrapper.style.zIndex = "0";
+      el.style.position = "relative";
+      el.appendChild(illustrationWrapper);
+    }
+
     if (i !== 0) {
       gsap.set(el, { autoAlpha: 0 });
     }
@@ -112,21 +129,72 @@ export function renderSlides(
   const slideElements = () =>
     container.querySelectorAll<HTMLElement>(".gsap-slide");
 
-  function runElementAnimation(slideEl: HTMLElement) {
-    if (!animationName) return;
+  /**
+   * Split heading text into word spans and animate them with a reveal effect.
+   * Runs on every slide transition.
+   */
+  function runHeadingReveal(slideEl: HTMLElement) {
+    const headings = slideEl.querySelectorAll<HTMLElement>("h1, h2");
+    headings.forEach((heading) => {
+      // Only split once — check for existing word spans
+      if (heading.querySelector(".gsap-word")) return;
+      const text = heading.textContent ?? "";
+      if (!text.trim()) return;
+      const words = text.split(/\s+/);
+      heading.innerHTML = words
+        .map((w) => `<span class="gsap-word" style="display:inline-block">${w}</span>`)
+        .join(" ");
+    });
+
+    const wordSpans = slideEl.querySelectorAll<HTMLElement>(".gsap-word");
+    if (wordSpans.length > 0) {
+      gsap.fromTo(
+        Array.from(wordSpans),
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: "power2.out" },
+      );
+    }
+  }
+
+  /**
+   * Run element animation for the given slide, using per-slide frontmatter
+   * animation if present, falling back to the global animation option.
+   */
+  function runElementAnimation(slideEl: HTMLElement, slideIndex: number) {
     // Kill previous element animation timeline to avoid leaks
     if (activeElementTimeline) {
       activeElementTimeline.kill();
       activeElementTimeline = undefined;
     }
-    const animFn = getAnimation(animationName);
+
+    // Always run heading word reveal
+    runHeadingReveal(slideEl);
+
+    // Animate DiceBear illustration if present
+    const illustration = slideEl.querySelector<HTMLElement>(".gsap-slide-illustration");
+    if (illustration) {
+      gsap.fromTo(
+        illustration,
+        { scale: 0.8, opacity: 0 },
+        { scale: 1, opacity: 0.3, duration: 0.8, ease: "power2.out" },
+      );
+    }
+
+    // Determine animation: per-slide frontmatter takes priority over global
+    const slideData = slides[slideIndex];
+    const perSlideAnim = slideData?.frontmatter?.animation;
+    const effectiveName = perSlideAnim ?? animationName;
+
+    if (!effectiveName) return;
+
+    const animFn = getAnimation(effectiveName);
     if (animFn) {
       activeElementTimeline = animFn(slideEl, animationOptions);
     }
   }
 
   // Animate the first visible slide
-  runElementAnimation(slideElements()[0]);
+  runElementAnimation(slideElements()[0], 0);
 
   function goTo(index: number) {
     if (index === currentIndex || index < 0 || index >= slides.length) return;
@@ -153,7 +221,7 @@ export function renderSlides(
       const tl = gsap.timeline({
         onComplete: () => {
           isAnimating = false;
-          runElementAnimation(entering);
+          runElementAnimation(entering, index);
         },
       });
 
