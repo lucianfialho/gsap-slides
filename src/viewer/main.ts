@@ -33,18 +33,9 @@ const container = document.getElementById("slides-container");
 if (!container) throw new Error("Missing #slides-container element");
 
 const slides = parseSlides(sampleMarkdown);
-const { goTo } = renderSlides(container, slides);
 
-let currentSlide = 0;
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowRight" || e.key === " ") {
-    e.preventDefault();
-    currentSlide = Math.min(currentSlide + 1, slides.length - 1);
-    goTo(currentSlide);
-  } else if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    currentSlide = Math.max(currentSlide - 1, 0);
-    goTo(currentSlide);
-  }
+// Navigation is now handled internally by the renderer
+renderSlides(container, slides, {
+  transition: "fade",
+  animation: "stagger",
 });
