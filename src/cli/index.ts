@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { startDevServer } from "./commands/dev.js";
+import { registerInitCommand } from "./commands/init.js";
 
 const program = new Command();
 
@@ -30,5 +31,7 @@ program
     console.log(`Building slides from: ${file} -> ${options.output}`);
     // TODO: build static slide deck
   });
+
+registerInitCommand(program);
 
 program.parse();
