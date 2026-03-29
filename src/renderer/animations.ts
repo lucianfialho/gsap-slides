@@ -72,7 +72,12 @@ export function typewriter(
 
   if (!target) return tl;
 
-  const fullText = target.textContent ?? "";
+  // On first run, store the original text so revisits can restore it.
+  const stored = target.getAttribute("data-typewriter-original");
+  const fullText = stored ?? target.textContent ?? "";
+  if (!stored) {
+    target.setAttribute("data-typewriter-original", fullText);
+  }
   target.textContent = "";
   target.style.visibility = "visible";
 

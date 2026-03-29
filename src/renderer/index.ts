@@ -70,6 +70,7 @@ export function renderSlides(
   let isAnimating = false;
   let navCleanup: NavigationCleanup | undefined;
   let overviewActive = false;
+  let activeElementTimeline: gsap.core.Timeline | undefined;
 
   // Resolve transition
   const transitionFn = getTransition(transitionName);
@@ -96,9 +97,14 @@ export function renderSlides(
 
   function runElementAnimation(slideEl: HTMLElement) {
     if (!animationName) return;
+    // Kill previous element animation timeline to avoid leaks
+    if (activeElementTimeline) {
+      activeElementTimeline.kill();
+      activeElementTimeline = undefined;
+    }
     const animFn = getAnimation(animationName);
     if (animFn) {
-      animFn(slideEl, animationOptions);
+      activeElementTimeline = animFn(slideEl, animationOptions);
     }
   }
 
@@ -108,6 +114,7 @@ export function renderSlides(
   function goTo(index: number) {
     if (index === currentIndex || index < 0 || index >= slides.length) return;
     if (isAnimating) return;
+    if (overviewActive) return;
 
     isAnimating = true;
 
@@ -116,25 +123,37 @@ export function renderSlides(
     const entering = els[index];
     const direction: Direction = index > currentIndex ? 1 : -1;
 
+    // Kill active element animation before transitioning away
+    if (activeElementTimeline) {
+      activeElementTimeline.kill();
+      activeElementTimeline = undefined;
+    }
+
     // Reset entering slide position
-    gsap.set(entering, { x: "0%", y: "0%", scale: 1, rotationY: 0 });
+    gsap.set(entering, { x: "0%", y: "0%", scale: 1, rotationY: 0, rotationX: 0 });
 
-    const tl = gsap.timeline({
-      onComplete: () => {
-        isAnimating = false;
-        runElementAnimation(entering);
-      },
-    });
+    try {
+      const tl = gsap.timeline({
+        onComplete: () => {
+          isAnimating = false;
+          runElementAnimation(entering);
+        },
+      });
 
-    transitionFn(tl, leaving, entering, direction);
+      transitionFn(tl, leaving, entering, direction);
+    } catch {
+      isAnimating = false;
+    }
     currentIndex = index;
   }
 
   function next() {
+    if (overviewActive) return;
     goTo(currentIndex + 1);
   }
 
   function prev() {
+    if (overviewActive) return;
     goTo(currentIndex - 1);
   }
 
@@ -144,6 +163,34 @@ export function renderSlides(
     } else {
       document.exitFullscreen?.();
     }
+  }
+
+  /** Listeners attached to slide elements during overview mode. */
+  let overviewClickHandlers: Array<{ el: HTMLElement; handler: (e: Event) => void }> = [];
+
+  function cleanupOverviewClicks() {
+    overviewClickHandlers.forEach(({ el, handler }) => {
+      el.removeEventListener("click", handler);
+    });
+    overviewClickHandlers = [];
+  }
+
+  function exitOverviewToSlide(index: number) {
+    cleanupOverviewClicks();
+    overviewActive = false;
+    currentIndex = index;
+    const els = slideElements();
+    els.forEach((el, i) => {
+      gsap.to(el, {
+        autoAlpha: i === index ? 1 : 0,
+        scale: 1,
+        x: "0%",
+        y: "0%",
+        transformOrigin: "50% 50%",
+        duration: 0.4,
+        ease: "power2.out",
+      });
+    });
   }
 
   function toggleOverview() {
@@ -164,8 +211,17 @@ export function renderSlides(
           duration: 0.4,
           ease: "power2.out",
         });
+
+        // In overview, clicking a slide jumps to it and exits overview
+        const handler = (e: Event) => {
+          e.stopPropagation();
+          exitOverviewToSlide(i);
+        };
+        el.addEventListener("click", handler);
+        overviewClickHandlers.push({ el, handler });
       });
     } else {
+      cleanupOverviewClicks();
       // Restore: hide all except current
       els.forEach((el, i) => {
         gsap.to(el, {
@@ -200,6 +256,11 @@ export function renderSlides(
     },
     total: slides.length,
     destroy() {
+      if (activeElementTimeline) {
+        activeElementTimeline.kill();
+        activeElementTimeline = undefined;
+      }
+      cleanupOverviewClicks();
       navCleanup?.destroy();
     },
   };

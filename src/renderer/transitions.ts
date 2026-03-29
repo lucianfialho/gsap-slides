@@ -122,7 +122,7 @@ const zoom: TransitionFn = (tl, leaving, entering, _dir) => {
 };
 
 const flip: TransitionFn = (tl, leaving, entering, direction) => {
-  const axis = direction === 1 ? "rotationY" : "rotationY";
+  const axis = direction === 1 ? "rotationY" : "rotationX";
   tl.to(leaving, {
     [axis]: direction * -90,
     autoAlpha: 0,
