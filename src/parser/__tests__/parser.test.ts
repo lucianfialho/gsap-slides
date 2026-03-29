@@ -183,4 +183,97 @@ nested:
     expect(slides[0].content).toContain("video.mp4");
     expect(slides[0].content).toContain("audio.mp3");
   });
+
+  it("does not split slides on --- inside a fenced code block", async () => {
+    const md = `# Slide One
+
+\`\`\`yaml
+key: value
+---
+another: thing
+\`\`\`
+
+Some text after code.`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides).toHaveLength(1);
+    // Shiki renders code with spans, so check for the key tokens
+    expect(slides[0].content).toContain("key");
+    expect(slides[0].content).toContain("value");
+    expect(slides[0].content).toContain("another");
+    expect(slides[0].content).toContain("thing");
+    expect(slides[0].content).toContain("Some text after code.");
+  });
+
+  it("does not split on --- inside tilde fenced code block", async () => {
+    const md = `# Slide
+
+~~~
+---
+~~~
+
+Done.`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides).toHaveLength(1);
+    expect(slides[0].content).toContain("Done.");
+  });
+
+  it("handles unclosed frontmatter without swallowing the document", async () => {
+    const md = `---
+# This is a heading, not YAML
+
+Some paragraph content.
+
+---
+
+# Real Second Slide`;
+
+    const slides = await parseSlides(md);
+
+    // The unclosed frontmatter block should not swallow everything.
+    // We expect the heading and paragraph to be present in the output.
+    expect(slides.length).toBeGreaterThanOrEqual(1);
+
+    const allContent = slides.map((s) => s.content).join(" ");
+    expect(allContent).toContain("This is a heading");
+    expect(allContent).toContain("Some paragraph content");
+  });
+
+  it("handles Windows line endings (\\r\\n)", async () => {
+    const md = "# Slide One\r\n\r\nContent one\r\n\r\n---\r\n\r\n# Slide Two\r\n\r\nContent two";
+
+    const slides = await parseSlides(md);
+
+    expect(slides).toHaveLength(2);
+    expect(slides[0].content).toContain("Slide One");
+    expect(slides[1].content).toContain("Slide Two");
+  });
+
+  it("strips script tags when sanitize option is enabled", async () => {
+    const md = `# Hello
+
+<script>alert('xss')</script>
+
+<p onclick="alert('xss')">Click me</p>`;
+
+    const slides = await parseSlides(md, { sanitize: true });
+
+    expect(slides[0].content).not.toContain("<script");
+    expect(slides[0].content).not.toContain("alert");
+    expect(slides[0].content).not.toContain("onclick");
+    expect(slides[0].content).toContain("Click me");
+  });
+
+  it("preserves script tags when sanitize option is not set", async () => {
+    const md = `# Hello
+
+<script>alert('xss')</script>`;
+
+    const slides = await parseSlides(md);
+
+    expect(slides[0].content).toContain("<script");
+  });
 });

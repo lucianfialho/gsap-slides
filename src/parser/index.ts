@@ -9,10 +9,6 @@ import type { Slide, SlideElement, SlideFrontmatter } from "./types.js";
 
 export type { Slide, SlideElement, SlideFrontmatter, GSAPVars } from "./types.js";
 
-// Slide separator: a line containing only `---` that is NOT inside frontmatter.
-// Frontmatter appears at the very start of a slide block (after splitting).
-const SLIDE_SEPARATOR = "\n---\n";
-
 /**
  * Cached Shiki highlighter instance. Created lazily on first call.
  */
@@ -146,13 +142,35 @@ function splitSlides(markdown: string): string[] {
   const blocks: string[] = [];
   let current: string[] = [];
   let inFrontmatter = false;
+  let inCodeBlock = false;
 
   // Detect if the very first line is `---` (document-level frontmatter)
   let isFirstLine = true;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isSeparatorLine = line.trim() === "---";
+    const trimmedLine = line.trim();
+    const isSeparatorLine = trimmedLine === "---";
+
+    // Track fenced code block state (``` or ~~~)
+    if (!inFrontmatter && /^(`{3,}|~{3,})/.test(trimmedLine)) {
+      if (!inCodeBlock) {
+        inCodeBlock = true;
+        current.push(line);
+        continue;
+      } else {
+        // Closing fence
+        inCodeBlock = false;
+        current.push(line);
+        continue;
+      }
+    }
+
+    // While inside a code block, never treat --- as separator
+    if (inCodeBlock) {
+      current.push(line);
+      continue;
+    }
 
     if (isFirstLine && isSeparatorLine) {
       // Opening frontmatter for the first slide
@@ -164,11 +182,31 @@ function splitSlides(markdown: string): string[] {
     isFirstLine = false;
 
     if (inFrontmatter) {
-      current.push(line);
       if (isSeparatorLine) {
         // Closing frontmatter delimiter
+        current.push(line);
         inFrontmatter = false;
+        continue;
       }
+
+      // Safeguard: detect non-YAML content that indicates frontmatter was
+      // never properly closed. Markdown headings, blank lines followed by
+      // non-key-value content, or lines without a colon are signs.
+      const looksLikeYaml = /^\s*[\w][\w\s-]*:/.test(line) || trimmedLine === "";
+      if (!looksLikeYaml && /^#{1,6}\s/.test(trimmedLine)) {
+        // This is a markdown heading — frontmatter was not closed.
+        // Rewind: treat the opening --- as a separator instead, and
+        // re-process all buffered lines as regular content.
+        inFrontmatter = false;
+        // Remove the leading --- from current (it was the unclosed opener)
+        if (current.length > 0 && current[0].trim() === "---") {
+          current.shift();
+        }
+        current.push(line);
+        continue;
+      }
+
+      current.push(line);
       continue;
     }
 
@@ -232,10 +270,40 @@ async function parseSlideBlock(
 }
 
 /**
+ * Options for {@link parseSlides}.
+ */
+export interface ParseSlidesOptions {
+  /**
+   * When `true`, strip `<script>` tags and inline event handler attributes
+   * (e.g. `onclick`, `onerror`) from the rendered HTML. Defaults to `false`.
+   */
+  sanitize?: boolean;
+}
+
+/**
+ * Sanitize HTML by removing `<script>` tags and inline event handler
+ * attributes (`on*="..."`).
+ */
+function sanitizeHtml(html: string): string {
+  // Remove <script>...</script> and self-closing <script ... />
+  let result = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+  result = result.replace(/<script\b[^>]*\/?\s*>/gi, "");
+  // Remove on* event handler attributes
+  result = result.replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  return result;
+}
+
+/**
  * Parse a complete Markdown string into an array of Slide objects.
  *
  * Slides are separated by `---` on its own line. Each slide can contain
  * YAML frontmatter at its top to configure transitions and animations.
+ *
+ * @security **This function renders raw HTML by default.** Marked allows
+ * arbitrary HTML passthrough, which means untrusted input may contain
+ * `<script>` tags, event handlers (`onclick`, `onerror`, etc.), or other
+ * XSS vectors. Only pass **trusted** Markdown to this function, or enable
+ * the `sanitize` option to strip script tags and event handlers.
  *
  * @example
  * ```ts
@@ -259,13 +327,22 @@ async function parseSlideBlock(
  * `);
  * ```
  */
-export async function parseSlides(markdown: string): Promise<Slide[]> {
+export async function parseSlides(
+  markdown: string,
+  options?: ParseSlidesOptions,
+): Promise<Slide[]> {
   const marked = await createMarkedInstance();
   const blocks = splitSlides(markdown);
 
   const slides = await Promise.all(
     blocks.map((block, index) => parseSlideBlock(block, index, marked)),
   );
+
+  if (options?.sanitize) {
+    for (const slide of slides) {
+      slide.content = sanitizeHtml(slide.content);
+    }
+  }
 
   return slides;
 }
