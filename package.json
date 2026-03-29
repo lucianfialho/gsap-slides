@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsup && vite build",
-    "build:cli": "tsup",
+    "build:cli": "tsup && cp -r src/cli/templates dist/templates",
     "build:viewer": "vite build",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
